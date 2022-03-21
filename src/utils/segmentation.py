@@ -258,7 +258,13 @@ if __name__ == '__main__':
     print('initializing Segmentation object...')
     proc = Segmentation(args, inputA, flnA, inputB, flnB, None, None)
     print('segmenting...')
-    print(proc.get_segments())
+    inputA, inputB, inputC, xA_seg, xB_seg, xC_seg, x_seg, beat_channels = proc.get_segments()
+    print('INPUT A\n', inputA)
+    print('INPUT B\n', inputB)
+    print('xA_seg\n', xA_seg)
+    print('xB_seg\n', xB_seg)
+    print('x_seg\n', x_seg)
+    print('beat_channels\n', beat_channels)
 
     print('END')
 
