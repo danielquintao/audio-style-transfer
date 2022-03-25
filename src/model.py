@@ -5,6 +5,7 @@ from torch.utils.data import Dataset
 from torch.utils.data import DataLoader
 import librosa
 import numpy as np
+from tqdm import tqdm
 
 ####### TEMPORARY ########
 flnA = 'bongo-loop.mp3'
@@ -46,25 +47,35 @@ Y_imag = torch.from_numpy(np.random.rand(*A_real.shape)).float()
 print('T=', T, 'n=', n)
 print(A_real.shape)
 ##########################
-# CONTENT
-cnn = nn.Conv2d(in_channels=n//2+1, out_channels=2*n, kernel_size=(16,1))
-selu = nn.SELU()
-ar = selu(cnn(A_real))
-ai = selu(cnn(A_imag))
-br = selu(cnn(B_real))
-bi = selu(cnn(B_imag))
-yr = selu(cnn(Y_real))
-yi = selu(cnn(Y_imag))
-print(ar.shape)
-#########################
-# COMPUTATION OF GRAM MATRIX
-g_br = torch.mm(torch.squeeze(br), torch.transpose(torch.squeeze(br)))
-g_bi = torch.mm(torch.squeeze(bi), torch.transpose(torch.squeeze(bi)))
-g_yr = torch.mm(torch.squeeze(yr), torch.transpose(torch.squeeze(yr)))
-g_yi = torch.mm(torch.squeeze(yi), torch.transpose(torch.squeeze(yi)))
-print(g_br.shape)
+# MODEL
+class NeuralNetwork(nn.Module):
+    def __init__(self):
+        super(NeuralNetwork, self).__init__()
+        self.cnn = nn.Conv2d(in_channels=n//2+1, out_channels=2*n, kernel_size=(16,1))
+        self.selu = nn.SELU()
+    def forward(self, A_real, A_imag, B_real, B_imag, Y_real, Y_imag):
+        # CONTENT (shape (None, 287, 4096))
+        ar = self.selu(self.cnn(A_real)).squeeze(-1)
+        ai = self.selu(self.cnn(A_imag)).squeeze(-1)
+        br = self.selu(self.cnn(B_real)).squeeze(-1)
+        bi = self.selu(self.cnn(B_imag)).squeeze(-1)
+        yr = self.selu(self.cnn(Y_real)).squeeze(-1)
+        yi = self.selu(self.cnn(Y_imag)).squeeze(-1)
+        # STYLE (shape (None, 4096, 4096))
+        g_br = torch.matmul(br, torch.transpose(br, 1, 2))
+        g_bi = torch.matmul(bi, torch.transpose(bi, 1, 2))
+        g_yr = torch.matmul(yr, torch.transpose(yr, 1, 2))
+        g_yi = torch.matmul(yi, torch.transpose(yi, 1, 2))
+        return ar, ai, g_br, g_bi, yr, yi, g_yr, g_yi
+model = NeuralNetwork()
 ########################
 # OPTIMIZATION
+criterion = torch.nn.MSELoss()
+optimizer = torch.optim.Adam(model.parameters())
 
-
+for iter in tqdm(range(10)):
+    ar, ai, g_br, g_bi, yr, yi, g_yr, g_yi = model(A_real, A_imag, B_real, B_imag, Y_real, Y_imag)
+    # normalization const for style Gram:
+    Q = 2 * g_br.shape[1]  # Q=2NM, but M=g_br.shape[2] is included in torch.nn.MSELoss with reduce='average'
+    loss = 0.5 * criterion(ar, yr, reduce='sum')
 
