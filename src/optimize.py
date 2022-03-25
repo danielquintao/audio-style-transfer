@@ -8,9 +8,10 @@ import numpy as np
 from tqdm import tqdm
 from datetime import datetime
 
-####### TEMPORARY ########
-flnA = 'bongo-loop.mp3'
-flnB = 'crickets.mp3'
+# device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+
+flnA = 'tomczak_pair1_inA_content.wav'
+flnB = 'tomczak_pair1_inA_style.wav'
 
 args = {
     'audio_path': '../data/',
@@ -60,12 +61,21 @@ class NeuralNetwork(nn.Module):
         g_b = torch.matmul(b, torch.transpose(b, 1, 2))
         g_y = torch.matmul(y, torch.transpose(y, 1, 2))
         return a, g_b, y, g_y
+
 model = NeuralNetwork()
+Y.requires_grad = True
+########################
+# # GPU
+# A.to(device)
+# B.to(device)
+# Y.to(device)
+# model.to(device)
+# print(model.get_device())
+# print(A.get_device())
 ########################
 # OPTIMIZATION
 criterion_content = torch.nn.MSELoss(reduce='sum')
 criterion_style = torch.nn.MSELoss(reduce='sum')
-Y.requires_grad = True
 optimizer = torch.optim.Adam([Y], lr=0.1)
 scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer, 'min', verbose=True)
 
@@ -76,7 +86,7 @@ for iter in range(50):
     # normalization const for style Gram:
     Q = g_b.shape[1] * g_b.shape[2]  # Q=NM, but M=g_br.shape[2] is included in torch.nn.MSELoss with reduce='average'
     loss_content = 2 * criterion_content(a, y)
-    loss_style = 200 * criterion_style(g_b, g_y) / (Q * Q)
+    loss_style = 200 * 10000 * criterion_style(g_b, g_y) / (Q * Q)
     loss = loss_content + loss_style
     print("content loss", loss_content)
     print('style loss', loss_style)
@@ -88,8 +98,5 @@ for iter in range(50):
     # update step
     scheduler.step(loss)
 
-model_scripted = torch.jit.script(model) # Export to TorchScript
-model_scripted.save('../trained_models/model_scripted.pt') # Save
-# model.load_state_dict(torch.load(PATH))
-# model.eval()
+np.save('../outputs/log_mag_spectro_' + flnA[:-4] + flnB[:-4] + '.npy', Y.detach().numpy().squeeze())
 
