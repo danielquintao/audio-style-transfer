@@ -62,6 +62,7 @@ g_br = torch.mm(torch.squeeze(br), torch.transpose(torch.squeeze(br)))
 g_bi = torch.mm(torch.squeeze(bi), torch.transpose(torch.squeeze(bi)))
 g_yr = torch.mm(torch.squeeze(yr), torch.transpose(torch.squeeze(yr)))
 g_yi = torch.mm(torch.squeeze(yi), torch.transpose(torch.squeeze(yi)))
+print(g_br.shape)
 ########################
 # OPTIMIZATION
 
