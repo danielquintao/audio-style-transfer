@@ -5,6 +5,7 @@ from torch.utils.data import Dataset
 from torch.utils.data import DataLoader
 import librosa
 import numpy as np
+from scipy.optimize import fmin_l_bfgs_b
 from tqdm import tqdm
 from datetime import datetime
 
@@ -68,38 +69,31 @@ class NeuralNetwork(nn.Module):
 
 model = NeuralNetwork()
 Y.requires_grad = True
-########################
-# # GPU
-# A.to(device)
-# B.to(device)
-# Y.to(device)
-# model.to(device)
-# print(model.get_device())
-# print(A.get_device())
-########################
+
 # OPTIMIZATION
 criterion_content = torch.nn.MSELoss(reduce='sum')
 criterion_style = torch.nn.MSELoss(reduce='sum')
-optimizer = torch.optim.Adam([Y], lr=1.)  # XXX
-scheduler = torch.optim.lr_scheduler.StepLR(optimizer, 50, gamma=0.5, verbose=True)
 
-for iter in range(200):
-    print("Epoch", iter)
-    ## forward:
+def func(Y_flat):
+    print(Y_flat.shape)
+    Y_flat = Y_flat.reshape(1 + n // 2, T)
+    print(Y_flat.shape)
+    Y = torch.from_numpy(np.ascontiguousarray(Y_flat[None, :, :, None])).float()
+    Y.requires_grad = True
+    model.zero_grad()
     a, g_b, y, g_y = model(A, B, Y)
     # normalization const for style Gram:
     loss_content = 2 * criterion_content(a, y)
-    loss_style = 2 * criterion_style(g_b, g_y) / 100
+    loss_style = 2 * criterion_style(g_b, g_y) / 10
     loss = loss_content + loss_style
-    print("content loss", loss_content)
-    print('style loss', loss_style)
-    print("Loss:", loss)
-    ## backward:
-    optimizer.zero_grad()
     loss.backward()
-    optimizer.step()
-    # update step
-    scheduler.step()
+    # get gradient
+    Y_grad = Y.grad.numpy().flatten()
+    print(Y_grad.shape)
+    print(loss.item())
+    return loss.item(), Y_grad
 
-np.save('../outputs/log_mag_spectro_' + flnA[:-4] + flnB[:-4] + '.npy', Y.detach().numpy().squeeze())
+Y_opt = fmin_l_bfgs_b(func, Y.detach().numpy().flatten())
+
+np.save('../outputs/log_mag_spectro_' + flnA[:-4] + flnB[:-4] + '.npy', Y_opt.reshape(1 + n // 2, T))
 
