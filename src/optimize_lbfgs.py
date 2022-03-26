@@ -69,37 +69,52 @@ class NeuralNetwork(nn.Module):
 model = NeuralNetwork()
 Y.requires_grad = True
 ########################
-# # GPU
-# A.to(device)
-# B.to(device)
-# Y.to(device)
-# model.to(device)
+# GPU
+device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
+A.to(device)
+B.to(device)
+Y.to(device)
+model.to(device)
 # print(model.get_device())
-# print(A.get_device())
+print(A.get_device())
 ########################
 # OPTIMIZATION
 criterion_content = torch.nn.MSELoss(reduce='sum')
 criterion_style = torch.nn.MSELoss(reduce='sum')
-optimizer = torch.optim.Adam([Y], lr=1.)  # XXX
-scheduler = torch.optim.lr_scheduler.StepLR(optimizer, 15, gamma=0.1, verbose=True)
+# optimizer = torch.optim.Adam([Y], lr=0.1)
+optimizer = torch.optim.LBFGS([Y], lr=1., max_iter=500)  # XXX
+scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer, 'min', verbose=True)
 
 for iter in range(300):
     print("Epoch", iter)
-    ## forward:
-    a, g_b, y, g_y = model(A, B, Y)
-    # normalization const for style Gram:
-    loss_content = 2 * criterion_content(a, y)
-    loss_style = 2 * criterion_style(g_b, g_y) / 10
-    loss = loss_content + loss_style
-    print("content loss", loss_content)
-    print('style loss', loss_style)
-    print("Loss:", loss)
-    ## backward:
-    optimizer.zero_grad()
-    loss.backward()
-    optimizer.step()
+    # -------------------------------------------
+    # FOR L-BFGS
+    def loss_closure(return_all=False):
+        optimizer.zero_grad()
+        ## forward:
+        a, g_b, y, g_y = model(A, B, Y)
+        # normalization const for style Gram:
+        loss_content = 2 * criterion_content(a, y)
+        loss_style = 2 * criterion_style(g_b, g_y) / 10
+        loss = loss_content + loss_style
+        print("Loss:", loss.item())
+        ## backward:
+        loss.backward()
+        # if return_all:
+        #     return loss_content, loss_style, loss
+        # else:
+        #
+        return loss
+    # -------------------------------------------
+    # optimizer.step()  # XXX
+    loss = optimizer.step(loss_closure)
+    # log
+    # loss_content, loss_style, loss = loss_closure(True)
+    # print("content loss", loss_content)
+    # print('style loss', loss_style)
+    # print("Loss:", loss)
     # update step
-    scheduler.step(loss)
+    # scheduler.step(loss)
 
 np.save('../outputs/log_mag_spectro_' + flnA[:-4] + flnB[:-4] + '.npy', Y.detach().numpy().squeeze())
 
