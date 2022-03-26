@@ -62,7 +62,7 @@ model = NeuralNetwork()
 ########################################################
 # PROJECTION INTO STFT & OTIMIZATION
 
-eps = 1E-8
+eps = 1
 Y_list = []
 
 for A, B in zip(A_seg[:], B_seg[:]):
