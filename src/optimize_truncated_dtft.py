@@ -1,3 +1,4 @@
+import matplotlib.pyplot as plt
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
@@ -34,8 +35,11 @@ inputB = inputB[:length]
 n = 2048
 eps = 1
 # (the default params of librosa.stft is consistent w/ tomczak et al)
-A = np.log(np.abs(librosa.stft(inputA)) + eps)  # SHAPE (1 + n/2, T)
-B = np.log(np.abs(librosa.stft(inputB)) + eps)
+A = np.log(np.abs(librosa.stft(inputA)) + eps)[:n//4 + 1,:]  # SHAPE (1 + n/2, T) # XXX
+B = np.log(np.abs(librosa.stft(inputB)) + eps)[:n//4 + 1,:]                       # XXX
+# XXX REDEFINE n:
+n = n // 2
+# define T
 _, T = A.shape  # A.shape == B.shape because of the slicing above ;)
 
 # reshape from (n/2+1, T) to (1, n/2+1, T, 1) in Pytorch version i.e. (batch sz, channels, W, H)
@@ -51,7 +55,7 @@ class NeuralNetwork(nn.Module):
     def __init__(self):
         super(NeuralNetwork, self).__init__()
         self.cnn = nn.Conv2d(in_channels=n//2+1, out_channels=2*n, kernel_size=(16,1))
-        torch.nn.init.normal_(self.cnn.weight, std=np.sqrt(2/(n**3)))  # sqrt(2/n^3), found by hard specting source code
+        torch.nn.init.normal_(self.cnn.weight, std=np.sqrt(2/(n)))  # original sqrt(2/n^3), found by hard specting source code
         self.selu = nn.SELU()
     def forward(self, A, B, Y):
         # CONTENT (shape (None, 287, 4096))
@@ -80,10 +84,18 @@ Y.requires_grad = True
 # OPTIMIZATION
 criterion_content = torch.nn.MSELoss(reduce='sum')
 criterion_style = torch.nn.MSELoss(reduce='sum')
-optimizer = torch.optim.Adam([Y], lr=.1)  # XXX
-scheduler = torch.optim.lr_scheduler.StepLR(optimizer, 50, gamma=0.5, verbose=True)
+optimizer = torch.optim.AdamW([Y], lr=.5)  # XXX
+# scheduler = torch.optim.lr_scheduler.StepLR(optimizer, 50, gamma=0.5, verbose=True)
+scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer, 'min', 0.5, 7, threshold=0.001)
+# fight against overfitting the content:
+last_style_loss = np.inf
+count_style_loss_augmen = 0
 
-for iter in range(200):
+losses_style = []
+losses_content = []
+losses = []
+
+for iter in range(500):
     print("Epoch", iter)
     ## forward:
     a, g_b, y, g_y = model(A, B, Y)
@@ -92,14 +104,27 @@ for iter in range(200):
     loss_style = 2 * criterion_style(g_b, g_y) * 100
     loss = loss_content + loss_style
     print("content loss", loss_content)
+    losses_content.append(loss_content.detach().numpy())
     print('style loss', loss_style)
+    losses_style.append(loss_style.detach().numpy())
     print("Loss:", loss)
+    losses.append(loss.detach().numpy())
     ## backward:
     optimizer.zero_grad()
     loss.backward()
     optimizer.step()
     # update step
-    scheduler.step()
+    scheduler.step(loss_style)  # XXX SCHEDULE USING ONLY ON THE LOSS_STYLE
+    # early stop
+    if loss_style > last_style_loss:
+        count_style_loss_augmen += 1
+    else:
+        count_style_loss_augmen = 0
+    if count_style_loss_augmen > 10:
+        print('too many consecutive style losses achieved -> EARLY STOPPING')
+        break  # early stop!
+    last_style_loss = loss_style
+
 
 np.save('../outputs/log_mag_spectro_' + flnA[:-4] + flnB[:-4] + '.npy', Y.detach().numpy().squeeze())
 
