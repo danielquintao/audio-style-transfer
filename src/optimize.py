@@ -45,6 +45,8 @@ B = torch.from_numpy(np.ascontiguousarray(B[None, :, :, None])).float()  # STYLE
 Y = torch.from_numpy(np.random.rand(*A.shape) * 1E-3).float()
 print('T=', T, 'n=', n)
 print(A.shape)
+
+
 ##########################
 # MODEL
 class NeuralNetwork(nn.Module):
@@ -53,6 +55,7 @@ class NeuralNetwork(nn.Module):
         self.cnn = nn.Conv2d(in_channels=n//2+1, out_channels=2*n, kernel_size=(16,1))
         torch.nn.init.normal_(self.cnn.weight, std=np.sqrt(2/(n**3)))  # sqrt(2/n^3), found by hard specting source code
         self.selu = nn.SELU()
+
     def forward(self, A, B, Y):
         # CONTENT (shape (None, 287, 4096))
         a = self.selu(self.cnn(A)).squeeze(-1)
@@ -65,6 +68,7 @@ class NeuralNetwork(nn.Module):
         g_b = torch.divide(g_b, Q)
         g_y = torch.divide(g_y, Q)
         return a, g_b, y, g_y
+
 
 model = NeuralNetwork()
 Y.requires_grad = True
@@ -83,7 +87,7 @@ criterion_style = torch.nn.MSELoss(reduce='sum')
 optimizer = torch.optim.Adam([Y], lr=1.)  # XXX
 scheduler = torch.optim.lr_scheduler.StepLR(optimizer, 50, gamma=0.5, verbose=True)
 
-for iter in range(200):
+for iter in range(1):
     print("Epoch", iter)
     ## forward:
     a, g_b, y, g_y = model(A, B, Y)
