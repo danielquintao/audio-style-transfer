@@ -10,7 +10,7 @@ from tqdm import tqdm
 from datetime import datetime
 
 # device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-with open('../config/vars.yml') as f:
+with open('config/vars.yml') as f:
     VARS = yaml.load(f, yaml.Loader)
 
 

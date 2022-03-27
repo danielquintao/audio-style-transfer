@@ -16,7 +16,8 @@ with open('config/vars.yml') as f:
 args = VARS['args']
 
 # load prediction
-Y_stft = np.exp(np.load(VARS['outputs_path'] + 'log_mag_spectro_pachelbelbongo-loop.npy').squeeze()) - 1
+Y_logstft = np.load(VARS['outputs_path'] + 'log_mag_spectro_pachelbelbongo-loop.npy').squeeze()
+Y_stft = np.exp(Y_logstft) - 1
 
 # CORRECTION IN CASE WE TRUNCATED THE STFT BEFORE OPTIMIZATION (IMPORTANT):
 n = 2048
