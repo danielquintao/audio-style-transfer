@@ -93,7 +93,7 @@ print('content {:10.4f}{:10.4f}{:10.4f}'.format(1, sim_content_style, sim_Y_cont
 print('style   {:10.4f}{:10.4f}{:10.4f}'.format(sim_content_style, 1, sim_Y_style))
 print('mixture {:10.4f}{:10.4f}{:10.4f}'.format(sim_Y_content, sim_Y_style, 1))
 # visualize CHROMA-CENS
-fig, ax = plt.subplots(1, 3, figsize=(1,3))
+fig, ax = plt.subplots(1, 3, figsize=(30,3))
 ax[0].imshow(ccens_content)
 ax[0].set_title('content')
 ax[1].imshow(ccens_style)
@@ -102,20 +102,89 @@ ax[2].imshow(ccens_Y)
 ax[2].set_title('mixture')
 plt.show()
 
-#====================================
+#=======================================================================================================================
+# DEPRECATED BUT WORKS -> uncomment to see unmeaningful metrics but pretty plots :)
+im_interested_in_the_plots = False
+if im_interested_in_the_plots:
+    # still on content - rythm using beat spectrum (Foote 2001)
+    # http://www.rotorbrain.com/foote/papers/icme2001/icmehtml.htm#pgfId-1000011644
+    # 1- compute self similarity matrices (we'll do that on the log|STFT|)
+    assert Y_logstft.shape[0] == content_logstft.shape[0] == style_logstft.shape[0]
+    L = Y_logstft.shape[0]
+    norm_Y = np.sqrt(np.sum(Y_logstft ** 2, axis=1, keepdims=True))  # column vector
+    norm_content = np.sqrt(np.sum(content_logstft ** 2, axis=1, keepdims=True))  # column vector
+    norm_style = np.sqrt(np.sum(style_logstft ** 2, axis=1, keepdims=True))  # column vector
+    ssm_Y = Y_logstft[:,:Tmin] @ Y_logstft[:,:Tmin].T / (norm_Y @ norm_Y.T)
+    ssm_content = content_logstft[:,:Tmin] @ content_logstft[:,:Tmin].T / (norm_content @ norm_content.T)
+    ssm_style = style_logstft[:,:Tmin] @ style_logstft[:,:Tmin].T / (norm_style @ norm_style.T)
+    # visualize self-similarity matrices (SSM), mainly for debugging
+    fig, ax = plt.subplots(1, 3)
+    ax[0].imshow(ssm_content)
+    ax[0].set_title('content')
+    ax[1].imshow(ssm_style)
+    ax[1].set_title('style')
+    ax[2].imshow(ssm_Y)
+    ax[2].set_title('mixture')
+    plt.show()
+    # compute beat spectrum
+    bs_Y = []
+    bs_content = []
+    bs_style = []
+    for lag in range(L):
+        # compute SUM_i(SSM[i,i+lag]) and add to the list
+        bs_Y.append(np.trace(ssm_Y, offset=lag))
+        bs_content.append(np.trace(ssm_content, offset=lag))
+        bs_style.append(np.trace(ssm_style, offset=lag))
+    # visualize beat spectra
+    fig, ax = plt.subplots(1, 3)
+    ax[0].plot(bs_content)
+    ax[0].set_title('content')
+    ax[1].plot(bs_style)
+    ax[1].set_title('style')
+    ax[2].plot(bs_Y)
+    ax[2].set_title('mixture')
+    plt.show()
+    # compare the beat spectra as a single feature
+    bs_Y = np.array(bs_Y)
+    bs_content = np.array(bs_content)
+    bs_style = np.array(bs_style)
+    norm_Y = np.sqrt(np.sum(bs_Y * bs_Y))
+    norm_content = np.sqrt(np.sum(bs_content * bs_content))
+    norm_style = np.sqrt(np.sum(bs_style * bs_style))
+    sim_Y_content = np.dot(bs_Y, bs_content) / (norm_Y * norm_content)
+    sim_Y_style = np.dot(bs_Y, bs_style) / (norm_Y * norm_style)
+    sim_content_style = np.dot(bs_content, bs_style) / (norm_content * norm_style)  # expected to be small
+    print('COSINE SIMILARITIES BETWEEN BEAT SPECTRA:')
+    print('             content   style     mixture')
+    print('content {:10.4f}{:10.4f}{:10.4f}'.format(1, sim_content_style, sim_Y_content))
+    print('style   {:10.4f}{:10.4f}{:10.4f}'.format(sim_content_style, 1, sim_Y_style))
+    print('mixture {:10.4f}{:10.4f}{:10.4f}'.format(sim_Y_content, sim_Y_style, 1))
 
-# output = output.squeeze(0)
-# output = output.numpy()
-# # print(output.shape)
-# # output = output.resize([1025,2500])
-#
-# N_FFT = VARS['n'] # 2048
-# a = np.zeros_like(output)
-# a = np.exp(output) - 1
-#
-# # This code is supposed to do phase reconstruction
-# p = 2 * np.pi * np.random.random_sample(a.shape) - np.pi
-# for i in range(500):
-#     S = a * np.exp(1j * p)
-#     x = librosa.istft(S)
-#     p = np.angle(librosa.stft(x, N_FFT))
+    # evaluate style with MFCC
+    mfcc_Y = librosa.feature.mfcc(Y_audio[:Tmin], sr=args['sr'], hop_length=args['hoplen'], n_mfcc=13)
+    mfcc_content = librosa.feature.mfcc(content[:Tmin], sr=args['sr'], hop_length=args['hoplen'], n_mfcc=13)
+    mfcc_style = librosa.feature.mfcc(style[:Tmin], sr=args['sr'], hop_length=args['hoplen'], n_mfcc=13)
+    # cosine similarity between chroma cens
+    norm_Y = np.sqrt(np.sum(mfcc_Y * mfcc_Y))
+    norm_content = np.sqrt(np.sum(mfcc_content * mfcc_content))
+    norm_style = np.sqrt(np.sum(mfcc_style * mfcc_style))
+    sim_Y_content = np.dot(mfcc_Y.flatten(), mfcc_content.flatten()) / (norm_Y * norm_content)
+    sim_Y_style = np.dot(mfcc_Y.flatten(), mfcc_style.flatten()) / (norm_Y * norm_style)
+    sim_content_style = np.dot(mfcc_content.flatten(), mfcc_style.flatten()) / (norm_content * norm_style)  # expected to be small
+    print('COSINE SIMILARITIES BETWEEN MFCCs:')
+    print('             content   style     mixture')
+    print('content {:10.4f}{:10.4f}{:10.4f}'.format(1, sim_content_style, sim_Y_content))
+    print('style   {:10.4f}{:10.4f}{:10.4f}'.format(sim_content_style, 1, sim_Y_style))
+    print('mixture {:10.4f}{:10.4f}{:10.4f}'.format(sim_Y_content, sim_Y_style, 1))
+    # visualize MFCCS
+    fig, ax = plt.subplots(1, 3, figsize=(30,3))
+    ax[0].imshow(mfcc_content)
+    ax[0].set_title('content')
+    ax[1].imshow(mfcc_style)
+    ax[1].set_title('style')
+    ax[2].imshow(mfcc_Y)
+    ax[2].set_title('mixture')
+    plt.show()
+
+
+
