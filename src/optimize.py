@@ -5,22 +5,19 @@ from torch.utils.data import Dataset
 from torch.utils.data import DataLoader
 import librosa
 import numpy as np
+import yaml
 from tqdm import tqdm
 from datetime import datetime
 
 # device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+with open('../config/vars.yml') as f:
+    VARS = yaml.load(f, yaml.Loader)
 
-flnA = 'pachelbel.mp3'
-flnB = 'bongo-loop.mp3'
 
-args = {
-    'audio_path': '../data/',
-    'sr': 22050,
-    'nfft': 2048,
-    'hoplen': 1024,
-    'init_downbeat': False,  # whether to set first detected beat to first downbeat
-    'target_pattern': 'B'  # target output beat length from files
-}
+flnA = VARS['flnA']
+flnB = VARS['flnB']
+
+args = VARS['args']
 
 print('loading files...')
 inputA, _ = librosa.load(args['audio_path'] + flnA, sr=args['sr'], mono=True)
@@ -31,8 +28,8 @@ length = min(len(inputA), len(inputB))
 inputA = inputA[:length]
 inputB = inputB[:length]
 
-n = 2048
-eps = 1
+n = VARS['n']  # 2048
+eps = VARS['eps']  # 1
 # (the default params of librosa.stft is consistent w/ tomczak et al)
 A = np.log(np.abs(librosa.stft(inputA)) + eps)  # SHAPE (1 + n/2, T)
 B = np.log(np.abs(librosa.stft(inputB)) + eps)
@@ -105,5 +102,5 @@ for iter in range(1):
     # update step
     scheduler.step()
 
-np.save('../outputs/log_mag_spectro_' + flnA[:-4] + flnB[:-4] + '.npy', Y.detach().numpy().squeeze())
+np.save(VARS['outputs_path'] + 'log_mag_spectro_' + flnA[:-4] + flnB[:-4] + '.npy', Y.detach().numpy().squeeze())
 
