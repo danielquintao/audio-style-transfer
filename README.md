@@ -12,6 +12,10 @@ First of all, we decided to use PyTorch since the paper's provided code and most
 
 Although the architecture in Tomczak et al is very simple, doing the optimization showed really challenging. Moreover, we could not manage to use PyTorch's [LBFGS](https://pytorch.org/docs/stable/generated/torch.optim.LBFGS.html) (we had some bugs that seem to be some issue of the framework according to some research on forums). We finally used AdamW optimizer of PyTorch which is not bad, combined with a learning-rate scheduler and some code to do Early Stopping that we added because the content file was dominating the style file in our first essays.
 
+### Methods
+- Method1: We used an STFT to change the audios from time to frequency domain, then we calculated the magnitude of the content and style signals, afterwards we created our own model composed of CNN and SELU activation function to process the content, the style and the output signal initialised as noise. We trained the model by trying to optimize two loss functions: content + style loss.
+- Method2: We created directly a model that can do the preprocessing of the audio files directly and the modeling part. This model is composed of the pretrained Conv-TasNet encoder that can generate an optimized representation of the waveform audio files. 
+
 ### Data set
 We did our tests with audio tracks used by [Tomczak et al](https://maciek-tomczak.github.io/maciek.github.io/Audio-Style-Transfer-with-Rhythmic-Constraints/) and some audio files used by [Grinstein et al](https://egrinstein.github.io/2017/10/25/ast.html).
 
@@ -21,7 +25,8 @@ We did our tests with audio tracks used by [Tomczak et al](https://maciek-tomcza
 - src:
   - config: 
     - vars.yaml: a yaml file that contains all global variables used in the project
-  - optimize_truncated.py: model and training
+  - optimize_truncated.py: STFT, Content and Style preprocessing, model and training
+  - optimize_on_pretrained.ipynb : Conv-TasNet pretrained encoder, model and training
   - test.py: testing model with custom inputs and visualizations
 
 ### Execution instructions
