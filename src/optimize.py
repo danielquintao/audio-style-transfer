@@ -10,8 +10,8 @@ from datetime import datetime
 
 # device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
-flnA = 'tomczak_pair1_inA_content.wav'
-flnB = 'tomczak_pair1_inA_style.wav'
+flnA = 'pachelbel.mp3'
+flnB = 'bongo-loop.mp3'
 
 args = {
     'audio_path': '../data/',
@@ -63,7 +63,7 @@ class NeuralNetwork(nn.Module):
         g_y = torch.matmul(y, torch.transpose(y, 1, 2))
         Q = b.shape[1] * b.shape[2]  # Q=NM, but M=g_br.shape[2] is included in torch.nn.MSELoss with reduce='average'
         g_b = torch.divide(g_b, Q)
-        g_b = torch.divide(g_y, Q)
+        g_y = torch.divide(g_y, Q)
         return a, g_b, y, g_y
 
 model = NeuralNetwork()

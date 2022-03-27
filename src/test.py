@@ -18,19 +18,20 @@ args = {  # TODO set global
 }
 
 # load prediction
-Y_stft = np.exp(np.load('../outputs/log_mag_spectro_tomczak_pair1_inA_contenttomczak_pair1_inA_style.npy').squeeze()) - 1
+Y_stft = np.exp(np.load('../outputs/log_mag_spectro_pachelbelbongo-loop.npy').squeeze()) - 1
 
 # load content and style
-fln_content = 'tomczak_pair1_inA_content.wav'
+fln_content = 'pachelbel.mp3'
 content, _ = librosa.load(args['audio_path'] + fln_content, sr=args['sr'], mono=True)
-fln_style = 'tomczak_pair1_inA_style.wav'
+fln_style = 'bongo-loop.mp3'
 style, _ = librosa.load(args['audio_path'] + fln_style, sr=args['sr'], mono=True)
 
 # fix phase of Y using phase of content
 content_stft = librosa.stft(content)
 exp_phase = np.exp(1j * np.angle(content_stft))
-Y_stft = Y_stft.astype('complex')
-Y_stft *= exp_phase[:, :Y_stft.shape[1]]
+Tmin = min(exp_phase.shape[1], Y_stft.shape[1])
+Y_stft = Y_stft[:,:Tmin].astype('complex')
+Y_stft *= exp_phase[:, :Tmin]
 
 Y_audio = librosa.core.istft(Y_stft)
 Y_audio[:50] = 0
