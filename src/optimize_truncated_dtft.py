@@ -89,7 +89,7 @@ losses_style = []
 losses_content = []
 losses = []
 
-for iter in range(5):
+for iter in range(500):
     print("Epoch", iter)
     ## forward:
     a, g_b, y, g_y = model(A, B, Y)

@@ -11,7 +11,7 @@ args:
 flnA: "pachelbel.mp3" # content file
 flnB: "bongo-loop.mp3" # style file
 
-flnLogMagSpectrogram: 'TEST_log_mag_spectro_pachelbelbongo-loop-GPU.npy'  # output of optimization (extension should be .npy)
+flnLogMagSpectrogram: 'log_mag_spectro_pachelbelbongo-loop-GPU.npy'  # output of optimization (extension should be .npy)
 
 # TODO
 n: 2048
