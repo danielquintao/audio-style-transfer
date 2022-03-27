@@ -10,7 +10,9 @@ import numpy as np
 from tqdm import tqdm
 from datetime import datetime
 
-# device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+print(device)
+
 with open('config/vars.yml') as f:
     VARS = yaml.load(f, yaml.Loader)
 
@@ -56,9 +58,9 @@ class NeuralNetwork(nn.Module):
         self.selu = nn.SELU()
     def forward(self, A, B, Y):
         # CONTENT (shape (None, 287, 4096))
-        a = self.selu(self.cnn(A)).squeeze(-1)
-        b = self.selu(self.cnn(B)).squeeze(-1)
-        y = self.selu(self.cnn(Y)).squeeze(-1)
+        a = self.selu(self.cnn(A.to(device))).squeeze(-1)
+        b = self.selu(self.cnn(B.to(device))).squeeze(-1)
+        y = self.selu(self.cnn(Y.to(device))).squeeze(-1)
         # STYLE (shape (None, 4096, 4096))
         g_b = torch.matmul(b, torch.transpose(b, 1, 2))
         g_y = torch.matmul(y, torch.transpose(y, 1, 2))
@@ -70,13 +72,8 @@ class NeuralNetwork(nn.Module):
 model = NeuralNetwork()
 Y.requires_grad = True
 ########################
-# # GPU
-# A.to(device)
-# B.to(device)
-# Y.to(device)
-# model.to(device)
-# print(model.get_device())
-# print(A.get_device())
+# GPU
+model.to(device)
 ########################
 # OPTIMIZATION
 criterion_content = torch.nn.MSELoss(reduce='sum')
@@ -92,7 +89,7 @@ losses_style = []
 losses_content = []
 losses = []
 
-for iter in range(500):
+for iter in range(5):
     print("Epoch", iter)
     ## forward:
     a, g_b, y, g_y = model(A, B, Y)
@@ -101,11 +98,11 @@ for iter in range(500):
     loss_style = 2 * criterion_style(g_b, g_y) * 100
     loss = loss_content + loss_style
     print("content loss", loss_content)
-    losses_content.append(loss_content.detach().numpy())
+    losses_content.append(loss_content.detach().cpu().numpy())
     print('style loss', loss_style)
-    losses_style.append(loss_style.detach().numpy())
+    losses_style.append(loss_style.detach().cpu().numpy())
     print("Loss:", loss)
-    losses.append(loss.detach().numpy())
+    losses.append(loss.detach().cpu().numpy())
     ## backward:
     optimizer.zero_grad()
     loss.backward()
@@ -123,5 +120,5 @@ for iter in range(500):
     last_style_loss = loss_style
 
 
-np.save(VARS['outputs_path'] + 'log_mag_spectro_' + flnA[:-4] + flnB[:-4] + '.npy', Y.detach().numpy().squeeze())
+np.save(VARS['outputs_path'] + VARS['flnLogMagSpectrogram'], Y.detach().cpu().numpy().squeeze())
 
