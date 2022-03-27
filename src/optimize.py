@@ -5,22 +5,19 @@ from torch.utils.data import Dataset
 from torch.utils.data import DataLoader
 import librosa
 import numpy as np
+import yaml
 from tqdm import tqdm
 from datetime import datetime
 
 # device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+with open('config/vars.yml') as f:
+    VARS = yaml.load(f, yaml.Loader)
 
-flnA = 'pachelbel.mp3'
-flnB = 'bongo-loop.mp3'
 
-args = {
-    'audio_path': '../data/',
-    'sr': 22050,
-    'nfft': 2048,
-    'hoplen': 1024,
-    'init_downbeat': False,  # whether to set first detected beat to first downbeat
-    'target_pattern': 'B'  # target output beat length from files
-}
+flnA = VARS['flnA']
+flnB = VARS['flnB']
+
+args = VARS['args']
 
 print('loading files...')
 inputA, _ = librosa.load(args['audio_path'] + flnA, sr=args['sr'], mono=True)
@@ -31,8 +28,8 @@ length = min(len(inputA), len(inputB))
 inputA = inputA[:length]
 inputB = inputB[:length]
 
-n = 2048
-eps = 1
+n = VARS['n']  # 2048
+eps = VARS['eps']  # 1
 # (the default params of librosa.stft is consistent w/ tomczak et al)
 A = np.log(np.abs(librosa.stft(inputA)) + eps)  # SHAPE (1 + n/2, T)
 B = np.log(np.abs(librosa.stft(inputB)) + eps)
@@ -45,6 +42,8 @@ B = torch.from_numpy(np.ascontiguousarray(B[None, :, :, None])).float()  # STYLE
 Y = torch.from_numpy(np.random.rand(*A.shape) * 1E-3).float() # XXX
 print('T=', T, 'n=', n)
 print(A.shape)
+
+
 ##########################
 # MODEL
 class NeuralNetwork(nn.Module):
@@ -53,6 +52,7 @@ class NeuralNetwork(nn.Module):
         self.cnn = nn.Conv2d(in_channels=n//2+1, out_channels=2*n, kernel_size=(16,1))
         torch.nn.init.normal_(self.cnn.weight, std=np.sqrt(2/(n**3)))  # sqrt(2/n^3), found by hard specting source code
         self.selu = nn.SELU()
+
     def forward(self, A, B, Y):
         # CONTENT (shape (None, 287, 4096))
         a = self.selu(self.cnn(A)).squeeze(-1)
@@ -65,6 +65,7 @@ class NeuralNetwork(nn.Module):
         g_b = torch.divide(g_b, Q)
         g_y = torch.divide(g_y, Q)
         return a, g_b, y, g_y
+
 
 model = NeuralNetwork()
 Y.requires_grad = True
@@ -83,7 +84,7 @@ criterion_style = torch.nn.MSELoss(reduce='sum')
 optimizer = torch.optim.Adam([Y], lr=.1)  # XXX
 scheduler = torch.optim.lr_scheduler.StepLR(optimizer, 50, gamma=0.5, verbose=True)
 
-for iter in range(200):
+for iter in range(1):
     print("Epoch", iter)
     ## forward:
     a, g_b, y, g_y = model(A, B, Y)
@@ -101,5 +102,5 @@ for iter in range(200):
     # update step
     scheduler.step()
 
-np.save('../outputs/log_mag_spectro_' + flnA[:-4] + flnB[:-4] + '.npy', Y.detach().numpy().squeeze())
+np.save(VARS['outputs_path'] + 'log_mag_spectro_' + flnA[:-4] + flnB[:-4] + '.npy', Y.detach().numpy().squeeze())
 

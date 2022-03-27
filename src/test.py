@@ -4,24 +4,21 @@ import torch.nn.functional as F
 from torch.utils.data import Dataset
 from torch.utils.data import DataLoader
 import librosa
+import yaml
 import numpy as np
 import matplotlib.pyplot as plt
 from scipy.io.wavfile import write
 
-np.set_printoptions(precision=3)
 
-args = {  # TODO set global
-    'audio_path': '../data/',
-    'sr': 22050,
-    'nfft': 2048,
-    'hoplen': 1024,
-    'init_downbeat': False,  # whether to set first detected beat to first downbeat
-    'target_pattern': 'B'  # target output beat length from files
-}
+with open('config/vars.yml') as f:
+    VARS = yaml.load(f, yaml.Loader)
+
+args = VARS['args']
 
 # load prediction
-Y_logstft = np.load('../outputs/log_mag_spectro_pachelbelbongo-loop.npy').squeeze()
+Y_logstft = np.load(VARS['outputs_path'] + 'log_mag_spectro_pachelbelbongo-loop.npy').squeeze()
 Y_stft = np.exp(Y_logstft) - 1
+
 # CORRECTION IN CASE WE TRUNCATED THE STFT BEFORE OPTIMIZATION (IMPORTANT):
 n = 2048
 if Y_stft.shape[0] < n / 2 + 1:
@@ -30,9 +27,9 @@ if Y_stft.shape[0] < n / 2 + 1:
     Y_stft[:Y_temp.shape[0], :] = Y_temp
 
 # load content and style
-fln_content = 'pachelbel.mp3'
+fln_content = VARS['flnA']
 content, _ = librosa.load(args['audio_path'] + fln_content, sr=args['sr'], mono=True)
-fln_style = 'bongo-loop.mp3'
+fln_style = VARS['flnB']
 style, _ = librosa.load(args['audio_path'] + fln_style, sr=args['sr'], mono=True)
 
 # convert content and style to log1p(stft) for further comparison
@@ -46,6 +43,7 @@ Tmin = min(exp_phase.shape[1], Y_stft.shape[1])
 Y_stft = Y_stft[:,:Tmin].astype('complex')
 Y_stft *= exp_phase[:, :Tmin]
 
+
 Y_audio = librosa.core.istft(Y_stft)
 Y_audio[:750] = 0
 Y_audio[-750:] = 0
@@ -54,7 +52,7 @@ print(Y_audio.shape)
 # change amplitude to save to wav
 Y_audio /= np.max(Y_audio)
 Y_audio *= np.iinfo(np.int16).max
-write('../outputs/result_'+ fln_content[:-4] + fln_style[:-4] + '.wav', args['sr'], Y_audio.astype(np.int16))
+write(VARS['audio_results_path'] + 'result_' + fln_content[:-4] + fln_style[:-4] + '.wav', args['sr'], Y_audio.astype(np.int16))
 
 # compare waveforms
 fig, ax = plt.subplots(1, 3)
@@ -111,7 +109,7 @@ plt.show()
 # # print(output.shape)
 # # output = output.resize([1025,2500])
 #
-# N_FFT = 2048
+# N_FFT = VARS['n'] # 2048
 # a = np.zeros_like(output)
 # a = np.exp(output) - 1
 #
